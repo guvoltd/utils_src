@@ -1,0 +1,35 @@
+How to wire it up (examples)
+
+1) Analog/continuous actuator (e.g., motor drive 0–100%):
+
+PID pid;
+PID_Init(&pid, /*Kp=*/2.0, /*Ki=*/1.0, /*Kd=*/0.2, /*Ts=*/0.05,
+         /*out_min=*/0.0, /*out_max=*/100.0);
+PID_SetAdvanced(&pid, /*beta=*/1.0, /*tau=*/0.05); // full P on setpoint, mild D filter
+
+double setpoint = 1500.0;   // rpm
+double y_meas   = read_rpm();
+double u = PID_Update(&pid, setpoint, y_meas);  // 0..100%
+set_motor_percent(u);
+
+2) Relay/SSR heater using time‑proportioning (on/off):
+PID pid;
+TPWM tpwm;
+PID_Init(&pid, 12.0, 0.8, 0.0, 1.0, 0.0, 100.0);     // 1s loop, 0..100% command
+TPWM_Init(&tpwm, 2.0);                               // 2s window
+
+double sp = 70.0;                                    // °C
+double pv = read_temp_c();
+double u_percent = PID_Update(&pid, sp, pv);         // 0..100
+int relay_on = TPWM_Update(&tpwm, u_percent/100.0, /*dt=*/1.0);
+write_relay(relay_on);
+Notes from the trenches
+Use derivative on measurement (already implemented) for noise suppression.
+
+For really noisy signals, increase tau (e.g., 0.1–0.3s) or reduce Kd.
+
+If you must switch between manual/auto, call PID_SetMode() to get bumpless handover.
+
+Keep Ts consistent; if your scheduler varies, pass the true dt by rebuilding/setting Ts before each update and re‑compute d_alpha (simple: call PID_SetAdvanced(pid, pid->beta, pid->tau) after changing Ts).
+
+If you want this split into .h/.c files or tuned for float on a small MCU, say the word and I’ll refactor it accordingly.
