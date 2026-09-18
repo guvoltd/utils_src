@@ -126,70 +126,144 @@ function melinuxcnc() {
     if [ "$#" -ge 1 ]; then
         text=$1
         count=0
-        logFile=0
-        if [ "$#" -eq 2 ]; then
-            if [ "$2" = "l" ] || [ "$2" = "log" ] ; then
-                count=0
-                logFile=1
-            elif [ "$2" -gt 3 ]; then
+        logFile=1
+	    if [ "$#" -eq 2 ]; then
+            if [ "$2" -gt 3 ]; then
                 count=3
             else
                 count=$2
             fi
         fi
-        cd ~/linuxcnc/$text/src/
+        #cd ~/linuxcnc/$text/src/
+        cd $text/src/
 
-        if [ "$count" -ge 3 ]; then
+	    if [ "$count" -ge 3 ]; then
             echo "make clean"
+            make clean
+            if [ "$?" -ne 0 ]; then
+                echo "Error: 'make clean' failed."
+                return 1
+            fi
+            logFile=1
             count=$((count - 1))
         fi
 
         if [ "$count" -eq 2 ]; then
             echo "autogen.sh"
+            
             ./autogen.sh
-        	./configure --with-realtime=uspace
+            if [ "$?" -ne 0 ]; then
+                echo "Error: './autogen.sh' failed."
+                return 1
+            fi
+            
+            ./configure --with-realtime=uspace --disable-build-documentation-translation
+            if [ "$?" -ne 0 ]; then
+                echo "Error: './configure' failed."
+                return 1
+            fi
             count=$((count - 1))
         fi
-
+	
         if [ "$count" -eq 1 ]; then
             echo "make"
             make -j4
-	        count=$((count - 1))
+            if [ "$?" -ne 0 ]; then
+                echo "Error: 'make' failed."
+                return 1
+            fi
+            sudo make setuid 
+            if [ "$?" -ne 0 ]; then
+                echo "Error: 'sudo make setuid' failed."
+                return 1
+            fi
+            count=$((count - 1))
         fi
 
         if [ "$count" -eq 0 ]; then
             echo "Run Linuxcnc"
             cd ..
             source scripts/rip-environment
+            if [ "$?" -ne 0 ]; then
+                echo "Error: Source environment failed."
+                return 1
+            fi
             if [ "$logFile" -eq 1 ]; then
-                logFile=~/linuxcnc/$text/log_txt.txt
-                linuxcnc > $logFile
+                #logFile=~/linuxcnc/$text/log_txt.txt
+                logFile=log_txt.txt
+                #linuxcnc -d  ~/linuxcnc/$text/configs/sim/axis/axis_mm.ini > $logFile
+                echo "Running linuxcnc with ini: $text/configs/sim/axis/axis_mm_scurve.ini"
+                linuxcnc -d  configs/sim/axis/axis_mm_scurve.ini > $logFile
             else
-                linuxcnc
+                linuxcnc -d
             fi
         fi
 
     else
-        echo "Usage: melinuxcnc <text> <number>"
-        echo "Provide minimum  1  argument: a folder name from location '~/linuxcnc/'."
+        echo "Usage: melinuxcnc foldername <number>"
+        echo "Provide minimum  1  argument: 'foldername' a folder name from location '~/linuxcnc/'."
+        echo "<number>: '3': make clean before next steps, '2': autogen, configure command and follow next steps,"
+        echo "'1': Make and follow next steps, '0'/ skipped number argument, source env and run linuxcnc,"
+	echo "<number> = 'l'/'log', source env and run linuxcnc with capture log into log_txt.txt file, log file path current directory."
     fi
 }
 
-function checkStringArg() {
-    if [ "$#" -eq 1 ]; then
-        input=$1
-
-        if ; then
-            echo "Starting the process..."
-        elif [ "$input" = "stop" ]; then
-            echo "Stopping the process..."
-        elif [ "$input" = "status" ]; then
-            echo "Checking the status..."
-        else
-            echo "Invalid argument. Use 'start', 'stop', or 'status'."
-        fi
-    else
-        echo "Usage: checkStringArg <string>"
-        echo "Provide exactly 1 argument: 'start', 'stop', or 'status'."
-    fi
+function kde3diff(){
+	/home/uv/software/kdiff3-0.9.98/releaseQt/kdiff3 $1 $2
 }
+
+function memeld(){ 
+	if [ "$#" -ge 2 ]; then
+		GDK_BACKEND=x11 meld $1 $2
+	else	
+		GDK_BACKEND=x11 meld
+	fi
+}
+
+alias media="GDK_BACKEND=x11 dia"
+
+export PATH=~/ubuntuTouchMotoG60/bin:$PATH
+
+# vultr server site
+alias sshCncServer="ssh root@65.20.91.23"
+alias mefreecad="COIN_GL_NO_CURRENT_CONTEXT_CHECK=True freecad"
+alias meflashCnc="sudo dd if=/media/uv/winData/svn_server/cnc_mcc/trunk/images/mehtacnc_v1_lcnc2940_14-07-2025.img of=/dev/sda status=progress"
+
+alias meputty="env GDK_BACKEND=x11 putty"
+alias meanydesk="env GDK_BACKEND=x11 anydesk"
+alias meclaude="env GDK_BACKEND=x11 claude-desktop"
+
+alias sshShyamGothard="ssh -i /home/uv/MeProject/shyam/DigitalOceanDropletSSHKey/do_public_1 root@128.199.23.125"
+alias sshShyamThings="ssh -i /home/uv/MeProject/shyam/DigitalOceanDropletSSHKey/do_public_1 root@143.110.177.61"
+
+alias mersync_push="rsync -avz --exclude='bin' --exclude='.vscode' --exclude='.git' $1 $2"
+alias mersync_pull="rsync -avz --exclude='bin' --exclude='.vscode' --exclude='.git' $1 $2"
+alias mersync_sim="rsync -anv  --exclude='bin' --exclude='.vscode' --exclude='.git' $1 $2"
+
+alias megitLocal="git config user.name $1; git config user.email $2; git config credential.helper cache"
+alias meGetFolderSize="du -h -d 1 | sort -h"
+
+# function checkStringArg() {
+#     if [ "$#" -eq 1 ]; then
+#         input=$1
+
+#         if ; then
+#             echo "Starting the process..."
+#         elif [ "$input" = "stop" ]; then
+#             echo "Stopping the process..."
+#         elif [ "$input" = "status" ]; then
+#             echo "Checking the status..."
+#         else
+#             echo "Invalid argument. Use 'start', 'stop', or 'status'."
+#         fi
+#     else
+#         echo "Usage: checkStringArg <string>"
+#         echo "Provide exactly 1 argument: 'start', 'stop', or 'status'."
+#     fi
+# }
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path bash)"
